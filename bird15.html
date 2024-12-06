@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Oyun</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #a0e7ff;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #87ceeb;
+        }
+        #control-btn {
+            display: block;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #1db954;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+        #control-btn:hover {
+            background-color: #128746;
+        }
+        #character-selection {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .character-option {
+            display: inline-block;
+            margin: 10px;
+            font-size: 50px;
+            cursor: pointer;
+        }
+        .character-option:hover {
+            transform: scale(1.2);
+        }
+        #close-selection {
+            display: block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #close-selection:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <canvas></canvas>
+    <button id="control-btn">Başlat</button>
+    <div id="character-selection">
+        <div class="character-option" data-character="futbol">⚽</div>
+        <div class="character-option" data-character="basketbol">🏀</div>
+        <div class="character-option" data-character="tenis">🎾</div>
+        <button id="close-selection">Kapat</button>
+    </div>
+
+    <script>
+        const canvas = document.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 600;
+
+        const controlBtn = document.getElementById('control-btn');
+        const characterSelection = document.getElementById('character-selection');
+        const closeSelectionBtn = document.getElementById('close-selection');
+        const characterOptions = document.querySelectorAll('.character-option');
+
+        let character = "futbol"; // Varsayılan karakter futbol topu
+        let characterImages = {
+            futbol: "⚽",
+            basketbol: "🏀",
+            tenis: "🎾"
+        };
+
+        let batY, batVelocity, pipes, score, gameRunning;
+        const batX = 150;
+        const batSize = 20;
+        let gravity = 0.5;
+        const jump = -6;
+        const pipeWidth = 50;
+        const pipeGap = 150;
+        const pipeSpeed = 2;
+
+        function initializeGame() {
+            batY = canvas.height / 2;
+            batVelocity = 0;
+            pipes = [];
+            score = 0;
+            gameRunning = true;
+            createPipe();
+            controlBtn.style.display = 'none';
+            characterSelection.style.display = 'none';
+            gameLoop();
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === "Space" && gameRunning) {
+                batVelocity = jump;
+            }
+        });
+
+        controlBtn.addEventListener('click', () => {
+            initializeGame();
+        });
+
+        characterOptions.forEach(option => {
+            option.addEventListener('click', (event) => {
+                character = event.target.getAttribute('data-character');
+                alert(`Seçilen karakter: ${character.toUpperCase()}`);
+                characterSelection.style.display = 'none'; // Seçim ekranını kapat
+            });
+        });
+
+        closeSelectionBtn.addEventListener('click', () => {
+            characterSelection.style.display = 'none'; // Seçim ekranını kapat
+        });
+
+        controlBtn.addEventListener('dblclick', () => {
+            characterSelection.style.display = 'block'; // Karakter seçme ekranını göster
+        });
+
+        function createPipe() {
+            const centerHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
+            pipes.push({
+                x: canvas.width,
+                top: centerHeight - pipeGap / 2,
+                bottom: centerHeight + pipeGap / 2,
+            });
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // Arka plan temizleme
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Karakteri çiz
+            drawCharacter(batX, batY);
+
+            // Yerçekimi ve hareket
+            batVelocity += gravity;
+            batY += batVelocity;
+
+            // Boruların hareketi ve çizimi
+            ctx.fillStyle = 'green'; // Borular yeşil olacak
+            for (let i = 0; i < pipes.length; i++) {
+                const pipe = pipes[i];
+                pipe.x -= pipeSpeed;
+
+                // Boruları çiz
+                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+                ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
+
+                // Boruyu geçerse puan ekle
+                if (pipe.x + pipeWidth === batX) {
+                    score++;
+                }
+
+                // Çarpma kontrolü
+                if (
+                    batX + batSize > pipe.x &&
+                    batX - batSize < pipe.x + pipeWidth &&
+                    (batY - batSize < pipe.top || batY + batSize > pipe.bottom)
+                ) {
+                    endGame();
+                }
+
+                // Ekran dışına çıkan boruları sil
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.splice(i, 1);
+                    i--;
+                }
+            }
+
+            // Yer kontrolü
+            if (batY + batSize > canvas.height || batY - batSize < 0) {
+                endGame();
+            }
+
+            // Puan gösterimi
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 30px Arial';
+            ctx.textAlign = 'left';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 4;
+            ctx.fillText(`Skor: ${score}`, 20, 40);
+
+            // Oyun devam ediyorsa yeni borular oluştur
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
+                createPipe();
+            }
+
+            // Oyun döngüsünü tekrar çalıştır
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function drawCharacter(x, y) {
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(characterImages[character], x, y + 10); // Karakteri çiz
+        }
+
+        function endGame() {
+            gameRunning = false;
+            controlBtn.textContent = "Yeniden Başlat";
+            controlBtn.style.display = 'block';
+
+            // Oyun bitti yazısı
+            ctx.fillStyle = 'red';
+            ctx.font = 'bold 50px Arial';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 10;
+            ctx.fillText('Oyun Bitti!', canvas.width / 2, canvas.height / 2 - 50);
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 30px Arial';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 4;
+            ctx.fillText(`Son Skor: ${score}`, canvas.width / 2, canvas.height / 2);
+        }
+    </script>
+</body>
+</html>
